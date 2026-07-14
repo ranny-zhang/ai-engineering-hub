@@ -42,10 +42,10 @@ OPENAI_API_KEY="..."
 ```
 
 **Install Dependencies**:
-Ensure you have Python 3.11 or later installed.
+Ensure you have Python 3.11 or later and [uv](https://docs.astral.sh/uv/) installed.
 
 ```bash
-pip install "crewai[tools]"
+uv sync
 ```
 
 ---
@@ -61,7 +61,7 @@ cd build-code-harness
 and run the project by running the following command:
 
 ```bash
-python deep_agent_crew.py
+uv run python code_harness.py
 ```
 
 The task has `human_input=True`, so the run will pause once it has an answer and wait for your approval on the terminal before finishing.

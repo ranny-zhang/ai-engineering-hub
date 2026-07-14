@@ -168,8 +168,12 @@ GATED_TOOLS = {write_file.name, "run_tests", *(t.name for t in sandbox_tools)}
 @before_tool_call
 def require_approval(context):
     if context.tool_name in GATED_TOOLS:
-        response = context.request_human_input(
-            prompt=f"Approve {context.tool_name} with input {context.tool_input}?",
+        # ToolCallHookContext has no built-in "ask a human" method -- it only
+        # exposes tool_name, tool_input, tool, agent, task, crew, and
+        # tool_result. Blocking on stdin here is consistent with how
+        # Task(human_input=True) above already works.
+        response = input(
+            f"Approve {context.tool_name} with input {context.tool_input}? [yes/no] "
         )
         if response.strip().lower() != "yes":
             return False  # blocks the call; the agent is told it was denied
