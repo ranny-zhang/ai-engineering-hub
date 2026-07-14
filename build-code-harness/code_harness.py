@@ -8,20 +8,19 @@ from crewai_tools import DirectoryReadTool, FileReadTool, FileWriterTool
 
 # 1) THE BRAIN ---------------------------------------------------------------
 # The model is interchangeable -- CrewAI's version of "works with any LLM".
-MODEL = os.getenv("MODEL", "openrouter/anthropic/claude-sonnet-4-6")  # swap freely
+MODEL = os.getenv("MODEL", "openrouter/anthropic/claude-sonnet-4-6")  # swap here
 llm = LLM(model=MODEL)
 
 # 2) THE HANDS (tools) -------------------------------------------------------
 # Claude Code's read_file / write_file / ls map directly onto CrewAI file tools.
 read_file = FileReadTool()
-write_file = FileWriterTool()  # note: overwrites; "edit" = read-then-write
+write_file = FileWriterTool()  # overwrites; "edit" = read-then-write
 list_dir = DirectoryReadTool()
 filesystem_tools = [read_file, write_file, list_dir]
 
 # The sandbox: Claude Code runs shell commands and tests inside an isolated
-# environment. CrewAI's old CodeInterpreterTool is deprecated and removed; the
-# supported path is a real sandbox service. E2B gives shell + Python in an
-# ephemeral VM, and the shell covers grep/glob via actual grep/find.
+# environment. The supported path in CrewAI is a real sandbox service.
+# E2B gives shell + Python in an ephemeral VM, and the shell covers grep/glob via actual grep/find.
 sandbox_tools = []
 exec_tool = None
 if os.getenv("E2B_API_KEY"):
@@ -31,13 +30,11 @@ if os.getenv("E2B_API_KEY"):
     sandbox_tools = [exec_tool, E2BPythonTool()]  # run tests / run code
 
 # A custom tool: no built-in understands "run the test suite and report
-# pass/fail," only generic shell execution. Earlier this called subprocess.run
-# directly on the host, which was unsandboxed and inconsistent with the whole
-# argument of the sandbox section below. It now submits the same command
+# pass/fail," only generic shell execution. It submits the command
 # through the exec_tool instance above instead, via E2BExecTool's own
 # command: str argument, so it runs inside the same isolated VM as everything
 # else the coder and tester do -- a thin, test-shaped wrapper around real
-# sandboxed execution, not a second, weaker code path.
+# sandboxed execution.
 from crewai.tools import tool
 
 if exec_tool is not None:
@@ -117,9 +114,7 @@ manager = Agent(
 # One open-ended objective. The planner + manager decompose it; we do not
 # pre-assign it to an agent, so the manager is free to delegate.
 # human_input=True is CrewAI's human-in-the-loop gate: once the crew has an
-# answer, it pauses and asks for approval/feedback on the CLI before the run
-# is considered finished. This is the same shape as Claude Code's plan mode --
-# a pause you trigger and sign off on, not something the agent decides alone.
+# answer, it pauses and asks for approval/feedback on the CLI before the run is considered finished.
 task = Task(
     description=(
         "In the working directory ./workspace, {objective}. "
@@ -134,14 +129,13 @@ task = Task(
 # tool-calling crew into a *deep* agent: before each iteration an AgentPlanner
 # writes a step-by-step plan and injects it into the task -- CrewAI's equivalent
 # of Claude Code's todo-list planning tool (planning as context engineering).
-# planning defaults to gpt-4o-mini. We pin it explicitly here because Claude's
-# API rejects the `minimum` constraints CrewAI emits in its planner schemas.
+# planning defaults to gpt-4o-mini.
 #
-# memory=True turns on CrewAI's unified Memory system (v1.15+): the crew
+# memory=True turns on CrewAI's unified Memory system: the crew
 # remembers what happened on past kickoff() calls, not just within one run.
 # This is what beats the context-window limit across sessions, not just
 # within a single task -- the CrewAI analogue of Claude Code's long-term
-# memory and persistence, not the file-offload trick from Part 2.
+# memory and persistence.
 
 # 7) APPROVING COMMANDS (human-in-the-loop, before a tool runs) --------------
 # Task(human_input=True) above reviews the *finished* answer. This hook is a
@@ -152,11 +146,11 @@ task = Task(
 # the call; returning None lets it through unchanged.
 #
 # GATED_TOOLS is built from the actual tool objects we already import and
-# instantiate above (write_file, sandbox_tools), not from guessed strings.
+# instantiate above (write_file, sandbox_tools).
 # run_tests is included by its literal name -- we set that string ourselves
-# via @tool("run_tests"), so it's the one name in this set we know for certain
-# rather than reading off an object. It earns a spot in the gate now that it
-# submits a real command through exec_tool instead of running unsandboxed:
+# via @tool("run_tests"), so it's the one name in this set we know for certain.
+# It earns a spot in the gate now that it submits a real command through exec_tool 
+# instead of running unsandboxed.
 # it's constrained to `pytest {path} -q`, which is narrower than the raw
 # E2BExecTool it wraps, but it still executes inside the sandbox, so it goes
 # through the same approval gate as everything else that does.
@@ -185,7 +179,6 @@ def require_approval(context):
 # saved checkpoint instead of starting over -- the CrewAI analogue of a long
 # task surviving an interruption, distinct from memory=True above (memory is
 # recall of facts across runs; checkpointing is resuming an interrupted run).
-# CrewAI's own docs flag this as an early release: the API may still change.
 crew = Crew(
     agents=[explorer, coder, tester],
     tasks=[task],
